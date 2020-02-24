@@ -1576,8 +1576,8 @@ namespace RabbitMQ.Client.Framing.Impl
         public void CreateConnectionClose(ushort reasonCode, string reasonText, out RabbitMQ.Client.Impl.Command request, out ushort replyClassId, out ushort replyMethodId) { }
         public RabbitMQ.Client.IModel CreateModel(RabbitMQ.Client.Impl.ISession session) { }
         public RabbitMQ.Client.IModel CreateModel(RabbitMQ.Client.Impl.ISession session, RabbitMQ.Client.ConsumerWorkService workService) { }
-        public abstract RabbitMQ.Client.Impl.ContentHeaderBase DecodeContentHeaderFrom(RabbitMQ.Util.NetworkBinaryReader reader);
-        public abstract RabbitMQ.Client.Impl.MethodBase DecodeMethodFrom(RabbitMQ.Util.NetworkBinaryReader reader);
+        public abstract RabbitMQ.Client.Impl.ContentHeaderBase DecodeContentHeaderFrom(ushort classId);
+        public abstract RabbitMQ.Client.Impl.MethodBase DecodeMethodFrom(System.Memory<byte> reader);
         public override bool Equals(object obj) { }
         public override int GetHashCode() { }
         public override string ToString() { }
@@ -1710,7 +1710,7 @@ namespace RabbitMQ.Client.Impl
         public abstract string ProtocolClassName { get; }
         public abstract void AppendPropertyDebugStringTo(System.Text.StringBuilder stringBuilder);
         public virtual object Clone() { }
-        public ulong ReadFrom(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public ulong ReadFrom(System.Memory<byte> memory) { }
         public abstract void ReadPropertiesFrom(RabbitMQ.Client.Impl.ContentHeaderPropertyReader reader);
         public abstract void WritePropertiesTo(RabbitMQ.Client.Impl.ContentHeaderPropertyWriter writer);
         public void WriteTo(RabbitMQ.Util.NetworkBinaryWriter writer, ulong bodySize) { }
@@ -1719,8 +1719,7 @@ namespace RabbitMQ.Client.Impl
     {
         protected ushort m_bitCount;
         protected ushort m_flagWord;
-        public ContentHeaderPropertyReader(RabbitMQ.Util.NetworkBinaryReader reader) { }
-        public RabbitMQ.Util.NetworkBinaryReader BaseReader { get; }
+        public ContentHeaderPropertyReader(System.Memory<byte> memory) { }
         public bool ContinuationBitSet { get; }
         public void FinishPresence() { }
         public bool ReadBit() { }
@@ -1925,8 +1924,10 @@ namespace RabbitMQ.Client.Impl
         void Transmit(RabbitMQ.Client.Impl.Command cmd);
         void Transmit(System.Collections.Generic.IList<RabbitMQ.Client.Impl.Command> cmd);
     }
-    public class InboundFrame : RabbitMQ.Client.Impl.Frame
+    public class InboundFrame : RabbitMQ.Client.Impl.Frame, System.IDisposable
     {
+        public int PayloadSize { get; }
+        public void Dispose() { }
         public RabbitMQ.Util.NetworkBinaryReader GetReader() { }
         public static RabbitMQ.Client.Impl.InboundFrame ReadFrom(RabbitMQ.Util.NetworkBinaryReader reader) { }
     }
@@ -1945,8 +1946,7 @@ namespace RabbitMQ.Client.Impl
     }
     public class MethodArgumentReader
     {
-        public MethodArgumentReader(RabbitMQ.Util.NetworkBinaryReader reader) { }
-        public RabbitMQ.Util.NetworkBinaryReader BaseReader { get; }
+        public MethodArgumentReader(System.Memory<byte> memory) { }
         public bool ReadBit() { }
         public byte[] ReadContent() { }
         public uint ReadLong() { }
@@ -2314,16 +2314,23 @@ namespace RabbitMQ.Client.Impl
         public static decimal AmqpToDecimal(byte scale, uint unsignedMantissa) { }
         public static void DecimalToAmqp(decimal value, out byte scale, out int mantissa) { }
         public static System.Collections.IList ReadArray(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static System.Collections.IList ReadArray(System.Memory<byte> memory, out int bytesRead) { }
         public static decimal ReadDecimal(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static decimal ReadDecimal(System.Memory<byte> memory) { }
         public static object ReadFieldValue(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static object ReadFieldValue(System.Memory<byte> memory, out int bytesRead) { }
         public static uint ReadLong(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static ulong ReadLonglong(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static byte[] ReadLongstr(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static byte[] ReadLongstr(System.Memory<byte> memory) { }
         public static byte ReadOctet(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static ushort ReadShort(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static string ReadShortstr(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static string ReadShortstr(System.Memory<byte> memory, out int bytesRead) { }
         public static System.Collections.Generic.IDictionary<string, object> ReadTable(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static System.Collections.Generic.IDictionary<string, object> ReadTable(System.Memory<byte> memory, out int bytesRead) { }
         public static RabbitMQ.Client.AmqpTimestamp ReadTimestamp(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static RabbitMQ.Client.AmqpTimestamp ReadTimestamp(System.Memory<byte> memory) { }
         public static void WriteArray(RabbitMQ.Util.NetworkBinaryWriter writer, System.Collections.IList val) { }
         public static void WriteDecimal(RabbitMQ.Util.NetworkBinaryWriter writer, decimal value) { }
         public static void WriteFieldValue(RabbitMQ.Util.NetworkBinaryWriter writer, object value) { }
@@ -2427,6 +2434,7 @@ namespace RabbitMQ.Util
     public class NetworkBinaryReader : System.IO.BinaryReader
     {
         public NetworkBinaryReader(System.IO.Stream input) { }
+        public int Read(System.Memory<byte> memory) { }
         public override double ReadDouble() { }
         public override short ReadInt16() { }
         public override int ReadInt32() { }

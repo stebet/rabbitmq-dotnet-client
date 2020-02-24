@@ -84,7 +84,7 @@ namespace RabbitMQ.Client.Impl
 
             if (!_closeServerInitiated && frame.IsMethod())
             {
-                MethodBase method = Connection.Protocol.DecodeMethodFrom(frame.GetReader());
+                MethodBase method = Connection.Protocol.DecodeMethodFrom(frame.Payload.AsMemory(0, frame.PayloadSize));
                 if ((method.ProtocolClassId == _closeClassId)
                     && (method.ProtocolMethodId == _closeMethodId))
                 {
@@ -139,7 +139,7 @@ namespace RabbitMQ.Client.Impl
             MethodBase method = cmd.Method;
             if (((method.ProtocolClassId == _closeOkClassId)
                  && (method.ProtocolMethodId == _closeOkMethodId))
-                || (!_closeServerInitiated && 
+                || (!_closeServerInitiated &&
                     (method.ProtocolClassId == _closeClassId) &&
                     (method.ProtocolMethodId == _closeMethodId)
                     ))

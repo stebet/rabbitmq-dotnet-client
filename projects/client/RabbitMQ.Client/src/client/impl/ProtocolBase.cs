@@ -38,10 +38,10 @@
 //  Copyright (c) 2007-2020 VMware, Inc.  All rights reserved.
 //---------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 
 using RabbitMQ.Client.Impl;
-using RabbitMQ.Util;
 
 namespace RabbitMQ.Client.Framing.Impl
 {
@@ -102,8 +102,8 @@ namespace RabbitMQ.Client.Framing.Impl
             replyMethodId = ConnectionMethodConstants.CloseOk;
         }
 
-        public abstract ContentHeaderBase DecodeContentHeaderFrom(NetworkBinaryReader reader);
-        public abstract MethodBase DecodeMethodFrom(NetworkBinaryReader reader);
+        public abstract ContentHeaderBase DecodeContentHeaderFrom(ushort classId);
+        public abstract MethodBase DecodeMethodFrom(Memory<byte> reader);
 
         public override bool Equals(object obj)
         {
