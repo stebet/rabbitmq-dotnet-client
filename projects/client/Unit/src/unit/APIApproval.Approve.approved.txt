@@ -1626,6 +1626,7 @@ namespace RabbitMQ.Client.Impl
         public abstract void ClearType();
         public abstract void ClearUserId();
         public override object Clone() { }
+        public abstract override int GetRequiredPayloadBufferSize() { }
         public abstract bool IsAppIdPresent();
         public abstract bool IsClusterIdPresent();
         public abstract bool IsContentEncodingPresent();
@@ -1649,7 +1650,8 @@ namespace RabbitMQ.Client.Impl
     public class BodySegmentOutboundFrame : RabbitMQ.Client.Impl.OutboundFrame
     {
         public BodySegmentOutboundFrame(int channel, byte[] body, int offset, int count) { }
-        public override void WritePayload(RabbitMQ.Util.NetworkBinaryWriter writer) { }
+        public override int GetMinimumPayloadBufferSize() { }
+        public override int WritePayload(System.Memory<byte> memory) { }
     }
     public class ChannelErrorException : RabbitMQ.Client.Impl.HardProtocolException
     {
@@ -1710,10 +1712,12 @@ namespace RabbitMQ.Client.Impl
         public abstract string ProtocolClassName { get; }
         public abstract void AppendPropertyDebugStringTo(System.Text.StringBuilder stringBuilder);
         public virtual object Clone() { }
+        public int GetRequiredBufferSize() { }
+        public abstract int GetRequiredPayloadBufferSize();
         public ulong ReadFrom(System.Memory<byte> memory) { }
         public abstract void ReadPropertiesFrom(RabbitMQ.Client.Impl.ContentHeaderPropertyReader reader);
         public abstract void WritePropertiesTo(RabbitMQ.Client.Impl.ContentHeaderPropertyWriter writer);
-        public void WriteTo(RabbitMQ.Util.NetworkBinaryWriter writer, ulong bodySize) { }
+        public int WriteTo(System.Memory<byte> memory, ulong bodySize) { }
     }
     public class ContentHeaderPropertyReader
     {
@@ -1738,8 +1742,9 @@ namespace RabbitMQ.Client.Impl
     {
         protected int m_bitCount;
         protected ushort m_flagWord;
-        public ContentHeaderPropertyWriter(RabbitMQ.Util.NetworkBinaryWriter writer) { }
-        public RabbitMQ.Util.NetworkBinaryWriter BaseWriter { get; }
+        public ContentHeaderPropertyWriter(System.Memory<byte> memory) { }
+        public System.Memory<byte> Memory { get; }
+        public int Offset { get; }
         public void FinishPresence() { }
         public void WriteBit(bool bit) { }
         public void WriteLong(uint val) { }
@@ -1755,7 +1760,8 @@ namespace RabbitMQ.Client.Impl
     public class EmptyOutboundFrame : RabbitMQ.Client.Impl.OutboundFrame
     {
         public EmptyOutboundFrame() { }
-        public override void WritePayload(RabbitMQ.Util.NetworkBinaryWriter writer) { }
+        public override int GetMinimumPayloadBufferSize() { }
+        public override int WritePayload(System.Memory<byte> memory) { }
     }
     public static class ExtensionMethods
     {
@@ -1790,7 +1796,8 @@ namespace RabbitMQ.Client.Impl
     public class HeaderOutboundFrame : RabbitMQ.Client.Impl.OutboundFrame
     {
         public HeaderOutboundFrame(int channel, RabbitMQ.Client.Impl.ContentHeaderBase header, int bodyLength) { }
-        public override void WritePayload(RabbitMQ.Util.NetworkBinaryWriter writer) { }
+        public override int GetMinimumPayloadBufferSize() { }
+        public override int WritePayload(System.Memory<byte> memory) { }
     }
     public interface IConsumerDispatcher
     {
@@ -1960,8 +1967,9 @@ namespace RabbitMQ.Client.Impl
     }
     public class MethodArgumentWriter
     {
-        public MethodArgumentWriter(RabbitMQ.Util.NetworkBinaryWriter writer) { }
-        public RabbitMQ.Util.NetworkBinaryWriter BaseWriter { get; }
+        public MethodArgumentWriter(System.Memory<byte> memory) { }
+        public System.Memory<byte> Memory { get; }
+        public int Offset { get; }
         public void Flush() { }
         public void WriteBit(bool val) { }
         public void WriteContent(byte[] val) { }
@@ -1983,13 +1991,15 @@ namespace RabbitMQ.Client.Impl
         public abstract ushort ProtocolMethodId { get; }
         public abstract string ProtocolMethodName { get; }
         public abstract void AppendArgumentDebugStringTo(System.Text.StringBuilder stringBuilder);
+        public abstract int GetRequiredBufferSize();
         public abstract void ReadArgumentsFrom(RabbitMQ.Client.Impl.MethodArgumentReader reader);
         public abstract void WriteArgumentsTo(RabbitMQ.Client.Impl.MethodArgumentWriter writer);
     }
     public class MethodOutboundFrame : RabbitMQ.Client.Impl.OutboundFrame
     {
         public MethodOutboundFrame(int channel, RabbitMQ.Client.Impl.MethodBase method) { }
-        public override void WritePayload(RabbitMQ.Util.NetworkBinaryWriter writer) { }
+        public override int GetMinimumPayloadBufferSize() { }
+        public override int WritePayload(System.Memory<byte> memory) { }
     }
     public abstract class ModelBase : RabbitMQ.Client.IModel, RabbitMQ.Client.IRecoverable, RabbitMQ.Client.Impl.IFullModel, System.IDisposable
     {
@@ -2165,8 +2175,11 @@ namespace RabbitMQ.Client.Impl
     public abstract class OutboundFrame : RabbitMQ.Client.Impl.Frame
     {
         public OutboundFrame(RabbitMQ.Client.Impl.FrameType type, int channel) { }
-        public abstract void WritePayload(RabbitMQ.Util.NetworkBinaryWriter writer);
-        public void WriteTo(RabbitMQ.Util.NetworkBinaryWriter writer) { }
+        public int ByteCount { get; }
+        public int GetMinimumBufferSize() { }
+        public abstract int GetMinimumPayloadBufferSize();
+        public abstract int WritePayload(System.Memory<byte> memory);
+        public void WriteTo(System.Memory<byte> memory) { }
     }
     public abstract class ProtocolException : RabbitMQ.Client.Exceptions.RabbitMQClientException
     {
@@ -2313,37 +2326,29 @@ namespace RabbitMQ.Client.Impl
         public WireFormatting() { }
         public static decimal AmqpToDecimal(byte scale, uint unsignedMantissa) { }
         public static void DecimalToAmqp(decimal value, out byte scale, out int mantissa) { }
-        public static System.Collections.IList ReadArray(RabbitMQ.Util.NetworkBinaryReader reader) { }
+        public static int GetArrayByteCount(System.Collections.IList val) { }
+        public static int GetFieldValueByteCount(object value) { }
+        public static int GetTableByteCount(System.Collections.Generic.IDictionary<string, object> val) { }
+        public static int GetTableByteCount(System.Collections.IDictionary val) { }
         public static System.Collections.IList ReadArray(System.Memory<byte> memory, out int bytesRead) { }
-        public static decimal ReadDecimal(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static decimal ReadDecimal(System.Memory<byte> memory) { }
-        public static object ReadFieldValue(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static object ReadFieldValue(System.Memory<byte> memory, out int bytesRead) { }
-        public static uint ReadLong(RabbitMQ.Util.NetworkBinaryReader reader) { }
-        public static ulong ReadLonglong(RabbitMQ.Util.NetworkBinaryReader reader) { }
-        public static byte[] ReadLongstr(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static byte[] ReadLongstr(System.Memory<byte> memory) { }
-        public static byte ReadOctet(RabbitMQ.Util.NetworkBinaryReader reader) { }
-        public static ushort ReadShort(RabbitMQ.Util.NetworkBinaryReader reader) { }
-        public static string ReadShortstr(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static string ReadShortstr(System.Memory<byte> memory, out int bytesRead) { }
-        public static System.Collections.Generic.IDictionary<string, object> ReadTable(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static System.Collections.Generic.IDictionary<string, object> ReadTable(System.Memory<byte> memory, out int bytesRead) { }
-        public static RabbitMQ.Client.AmqpTimestamp ReadTimestamp(RabbitMQ.Util.NetworkBinaryReader reader) { }
         public static RabbitMQ.Client.AmqpTimestamp ReadTimestamp(System.Memory<byte> memory) { }
-        public static void WriteArray(RabbitMQ.Util.NetworkBinaryWriter writer, System.Collections.IList val) { }
-        public static void WriteDecimal(RabbitMQ.Util.NetworkBinaryWriter writer, decimal value) { }
-        public static void WriteFieldValue(RabbitMQ.Util.NetworkBinaryWriter writer, object value) { }
-        public static void WriteLong(RabbitMQ.Util.NetworkBinaryWriter writer, uint val) { }
-        public static void WriteLonglong(RabbitMQ.Util.NetworkBinaryWriter writer, ulong val) { }
-        public static void WriteLongstr(RabbitMQ.Util.NetworkBinaryWriter writer, byte[] val) { }
-        public static void WriteLongstr(RabbitMQ.Util.NetworkBinaryWriter writer, byte[] val, int index, int count) { }
-        public static void WriteOctet(RabbitMQ.Util.NetworkBinaryWriter writer, byte val) { }
-        public static void WriteShort(RabbitMQ.Util.NetworkBinaryWriter writer, ushort val) { }
-        public static void WriteShortstr(RabbitMQ.Util.NetworkBinaryWriter writer, string val) { }
-        public static void WriteTable(RabbitMQ.Util.NetworkBinaryWriter writer, System.Collections.Generic.IDictionary<string, object> val) { }
-        public static void WriteTable(RabbitMQ.Util.NetworkBinaryWriter writer, System.Collections.IDictionary val) { }
-        public static void WriteTimestamp(RabbitMQ.Util.NetworkBinaryWriter writer, RabbitMQ.Client.AmqpTimestamp val) { }
+        public static int WriteArray(System.Memory<byte> memory, System.Collections.IList val) { }
+        public static int WriteDecimal(System.Memory<byte> memory, decimal value) { }
+        public static int WriteFieldValue(System.Memory<byte> memory, object value) { }
+        public static int WriteLong(System.Memory<byte> memory, uint val) { }
+        public static int WriteLonglong(System.Memory<byte> memory, ulong val) { }
+        public static int WriteLongstr(System.Memory<byte> memory, byte[] val) { }
+        public static int WriteLongstr(System.Memory<byte> memory, byte[] val, int index, int count) { }
+        public static int WriteShort(System.Memory<byte> memory, ushort val) { }
+        public static int WriteShortstr(System.Memory<byte> memory, string val) { }
+        public static int WriteTable(System.Memory<byte> memory, System.Collections.Generic.IDictionary<string, object> val) { }
+        public static int WriteTable(System.Memory<byte> memory, System.Collections.IDictionary val) { }
+        public static int WriteTimestamp(System.Memory<byte> memory, RabbitMQ.Client.AmqpTimestamp val) { }
     }
 }
 namespace RabbitMQ.Client.Logging
