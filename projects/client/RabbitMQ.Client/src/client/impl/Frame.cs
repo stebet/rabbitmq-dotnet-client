@@ -78,26 +78,22 @@ namespace RabbitMQ.Client.Impl
 
     public class BodySegmentOutboundFrame : OutboundFrame
     {
-        private readonly byte[] _body;
-        private readonly int _offset;
-        private readonly int _count;
+        private ReadOnlyMemory<byte> _body;
 
-        public BodySegmentOutboundFrame(int channel, byte[] body, int offset, int count) : base(FrameType.FrameBody, channel)
+        public BodySegmentOutboundFrame(int channel, ReadOnlyMemory<byte> bodySegment) : base(FrameType.FrameBody, channel)
         {
-            _body = body;
-            _offset = offset;
-            _count = count;
+            _body = bodySegment;
         }
 
         public override int GetMinimumPayloadBufferSize()
         {
-            return _count;
+            return _body.Length;
         }
 
         public override int WritePayload(Memory<byte> memory)
         {
-            _body.AsMemory(_offset, _count).CopyTo(memory);
-            return _count;
+            _body.CopyTo(memory);
+            return _body.Length;
         }
     }
 
