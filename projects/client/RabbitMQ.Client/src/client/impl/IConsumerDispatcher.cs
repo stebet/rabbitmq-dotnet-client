@@ -42,7 +42,7 @@ using System;
 
 namespace RabbitMQ.Client.Impl
 {
-    public interface IConsumerDispatcher
+    interface IConsumerDispatcher
     {
         bool IsShutdown { get; }
 

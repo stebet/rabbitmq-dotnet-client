@@ -46,7 +46,7 @@ using RabbitMQ.Client.Framing.Impl;
 
 namespace RabbitMQ.Client.Impl
 {
-    public class Command : IDisposable
+    class Command : IDisposable
     {
         // EmptyFrameSize, 8 = 1 + 2 + 4 + 1
         // - 1 byte of frame type
@@ -62,18 +62,18 @@ namespace RabbitMQ.Client.Impl
             CheckEmptyFrameSize();
         }
 
-        public Command(MethodBase method) : this(method, null, null, 0)
+        internal Command(MethodBase method) : this(method, null, null, 0)
         {
         }
 
-        public Command(MethodBase method, ContentHeaderBase header, ReadOnlyMemory<byte> body)
+        internal Command(MethodBase method, ContentHeaderBase header, ReadOnlyMemory<byte> body)
         {
             Method = method;
             Header = header;
             Body = body;
         }
 
-        public Command(MethodBase method, ContentHeaderBase header, IMemoryOwner<byte> body, int bodySize)
+        internal Command(MethodBase method, ContentHeaderBase header, IMemoryOwner<byte> body, int bodySize)
         {
             Method = method;
             Header = header;
@@ -81,13 +81,13 @@ namespace RabbitMQ.Client.Impl
             Body = _body?.Memory.Slice(0, bodySize) ?? s_emptyByteArray;
         }
 
-        public ReadOnlyMemory<byte> Body { get; private set; }
+        internal ReadOnlyMemory<byte> Body { get; private set; }
 
-        public ContentHeaderBase Header { get; private set; }
+        internal ContentHeaderBase Header { get; private set; }
 
-        public MethodBase Method { get; private set; }
+        internal MethodBase Method { get; private set; }
 
-        public static void CheckEmptyFrameSize()
+        internal static void CheckEmptyFrameSize()
         {
             var f = new EmptyOutboundFrame();
             byte[] b = new byte[f.GetMinimumBufferSize()];
@@ -104,7 +104,7 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public void Transmit(int channelNumber, Connection connection)
+        internal void Transmit(int channelNumber, Connection connection)
         {
             if (Method.HasContent)
             {
@@ -116,12 +116,12 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public void TransmitAsSingleFrame(int channelNumber, Connection connection)
+        internal void TransmitAsSingleFrame(int channelNumber, Connection connection)
         {
             connection.WriteFrame(new MethodOutboundFrame(channelNumber, Method));
         }
 
-        public void TransmitAsFrameSet(int channelNumber, Connection connection)
+        internal void TransmitAsFrameSet(int channelNumber, Connection connection)
         {
             var frames = new List<OutboundFrame> { new MethodOutboundFrame(channelNumber, Method) };
             if (Method.HasContent)
@@ -141,7 +141,7 @@ namespace RabbitMQ.Client.Impl
         }
 
 
-        public static List<OutboundFrame> CalculateFrames(int channelNumber, Connection connection, IList<Command> commands)
+        internal static List<OutboundFrame> CalculateFrames(int channelNumber, Connection connection, IList<Command> commands)
         {
             var frames = new List<OutboundFrame>();
 

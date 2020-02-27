@@ -50,7 +50,7 @@ using RabbitMQ.Client.Impl;
 namespace RabbitMQ.Client.Unit
 {
     [TestFixture]
-    public class TestFieldTableFormattingGeneric : WireFormattingFixture
+    class TestFieldTableFormattingGeneric : WireFormattingFixture
     {
         [Test]
         public void TestStandardTypes()

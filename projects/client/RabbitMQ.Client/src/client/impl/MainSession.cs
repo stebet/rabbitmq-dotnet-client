@@ -50,7 +50,7 @@ using RabbitMQ.Client.Framing.Impl;
 namespace RabbitMQ.Client.Impl
 {
     ///<summary>Small ISession implementation used only for channel 0.</summary>
-    public class MainSession : Session
+    class MainSession : Session
     {
         private readonly object _closingLock = new object();
 

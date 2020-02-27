@@ -45,7 +45,7 @@ using RabbitMQ.Util;
 
 namespace RabbitMQ.Client.Impl
 {
-    public class MethodArgumentReader
+    class MethodArgumentReader
     {
         private int? _bit;
         private int _bits;
@@ -57,7 +57,7 @@ namespace RabbitMQ.Client.Impl
             ClearBits();
         }
 
-        private Memory<byte> _memory;
+        private readonly Memory<byte> _memory;
         private int _memoryOffset;
 
         public bool ReadBit()

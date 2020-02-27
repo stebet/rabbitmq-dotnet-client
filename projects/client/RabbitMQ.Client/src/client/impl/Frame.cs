@@ -49,24 +49,24 @@ using RabbitMQ.Util;
 
 namespace RabbitMQ.Client.Impl
 {
-    public class HeaderOutboundFrame : OutboundFrame
+    class HeaderOutboundFrame : OutboundFrame
     {
         private readonly ContentHeaderBase _header;
         private readonly int _bodyLength;
 
-        public HeaderOutboundFrame(int channel, ContentHeaderBase header, int bodyLength) : base(FrameType.FrameHeader, channel)
+        internal HeaderOutboundFrame(int channel, ContentHeaderBase header, int bodyLength) : base(FrameType.FrameHeader, channel)
         {
             _header = header;
             _bodyLength = bodyLength;
         }
 
-        public override int GetMinimumPayloadBufferSize()
+        internal override int GetMinimumPayloadBufferSize()
         {
             // ProtocolClassId (2) + header (X bytes)
             return 2 + _header.GetRequiredBufferSize();
         }
 
-        public override int WritePayload(Memory<byte> memory)
+        internal override int WritePayload(Memory<byte> memory)
         {
             // write protocol class id (2 bytes)
             NetworkOrderSerializer.WriteUInt16(memory, _header.ProtocolClassId);
@@ -76,7 +76,7 @@ namespace RabbitMQ.Client.Impl
         }
     }
 
-    public class BodySegmentOutboundFrame : OutboundFrame
+    class BodySegmentOutboundFrame : OutboundFrame
     {
         private ReadOnlyMemory<byte> _body;
 
@@ -85,34 +85,34 @@ namespace RabbitMQ.Client.Impl
             _body = bodySegment;
         }
 
-        public override int GetMinimumPayloadBufferSize()
+        internal override int GetMinimumPayloadBufferSize()
         {
             return _body.Length;
         }
 
-        public override int WritePayload(Memory<byte> memory)
+        internal override int WritePayload(Memory<byte> memory)
         {
             _body.CopyTo(memory);
             return _body.Length;
         }
     }
 
-    public class MethodOutboundFrame : OutboundFrame
+    class MethodOutboundFrame : OutboundFrame
     {
         private readonly MethodBase _method;
 
-        public MethodOutboundFrame(int channel, MethodBase method) : base(FrameType.FrameMethod, channel)
+        internal MethodOutboundFrame(int channel, MethodBase method) : base(FrameType.FrameMethod, channel)
         {
             _method = method;
         }
 
-        public override int GetMinimumPayloadBufferSize()
+        internal override int GetMinimumPayloadBufferSize()
         {
             // class id (2 bytes) + method id (2 bytes) + arguments (X bytes)
             return 4 + _method.GetRequiredBufferSize();
         }
 
-        public override int WritePayload(Memory<byte> memory)
+        internal override int WritePayload(Memory<byte> memory)
         {
             NetworkOrderSerializer.WriteUInt16(memory, _method.ProtocolClassId);
             NetworkOrderSerializer.WriteUInt16(memory.Slice(2), _method.ProtocolMethodId);
@@ -123,31 +123,31 @@ namespace RabbitMQ.Client.Impl
         }
     }
 
-    public class EmptyOutboundFrame : OutboundFrame
+    class EmptyOutboundFrame : OutboundFrame
     {
         public EmptyOutboundFrame() : base(FrameType.FrameHeartbeat, 0)
         {
         }
 
-        public override int GetMinimumPayloadBufferSize()
+        internal override int GetMinimumPayloadBufferSize()
         {
             return 0;
         }
 
-        public override int WritePayload(Memory<byte> memory)
+        internal override int WritePayload(Memory<byte> memory)
         {
             return 0;
         }
     }
 
-    public abstract class OutboundFrame : Frame
+    abstract class OutboundFrame : Frame
     {
         public int ByteCount { get; private set; } = 0;
         public OutboundFrame(FrameType type, int channel) : base(type, channel)
         {
         }
 
-        public void WriteTo(Memory<byte> memory)
+        internal void WriteTo(Memory<byte> memory)
         {
             memory.Span[0] = (byte)Type;
             NetworkOrderSerializer.WriteUInt16(memory.Slice(1), (ushort)Channel);
@@ -157,15 +157,15 @@ namespace RabbitMQ.Client.Impl
             ByteCount = bytesWritten + 8;
         }
 
-        public abstract int WritePayload(Memory<byte> memory);
-        public abstract int GetMinimumPayloadBufferSize();
-        public int GetMinimumBufferSize()
+        internal abstract int WritePayload(Memory<byte> memory);
+        internal abstract int GetMinimumPayloadBufferSize();
+        internal int GetMinimumBufferSize()
         {
             return 8 + GetMinimumPayloadBufferSize();
         }
     }
 
-    public class InboundFrame : Frame, IDisposable
+    class InboundFrame : Frame, IDisposable
     {
         public int PayloadSize { get; private set; }
         private InboundFrame(FrameType type, int channel, byte[] payload, int payloadSize) : base(type, channel, payload)
@@ -173,13 +173,13 @@ namespace RabbitMQ.Client.Impl
             PayloadSize = payloadSize;
         }
 
-        private static void ProcessProtocolHeader(NetworkBinaryReader reader)
+        private static void ProcessProtocolHeader(Stream reader)
         {
             try
             {
-                byte b1 = reader.ReadByte();
-                byte b2 = reader.ReadByte();
-                byte b3 = reader.ReadByte();
+                byte b1 = (byte)reader.ReadByte();
+                byte b2 = (byte)reader.ReadByte();
+                byte b3 = (byte)reader.ReadByte();
                 if (b1 != 'M' || b2 != 'Q' || b3 != 'P')
                 {
                     throw new MalformedFrameException("Invalid AMQP protocol header from server");
@@ -189,10 +189,7 @@ namespace RabbitMQ.Client.Impl
                 int transportLow = reader.ReadByte();
                 int serverMajor = reader.ReadByte();
                 int serverMinor = reader.ReadByte();
-                throw new PacketNotRecognizedException(transportHigh,
-                    transportLow,
-                    serverMajor,
-                    serverMinor);
+                throw new PacketNotRecognizedException(transportHigh, transportLow, serverMajor, serverMinor);
             }
             catch (EndOfStreamException)
             {
@@ -207,13 +204,17 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public static InboundFrame ReadFrom(NetworkBinaryReader reader)
+        internal static InboundFrame ReadFrom(Stream reader)
         {
             int type;
 
             try
             {
                 type = reader.ReadByte();
+                if (type == -1)
+                {
+                    throw new EndOfStreamException("Reached the end of the stream. Possible authentication failure.");
+                }
             }
             catch (IOException ioe)
             {
@@ -266,11 +267,6 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public NetworkBinaryReader GetReader()
-        {
-            return new NetworkBinaryReader(new MemoryStream(base.Payload, 0, PayloadSize));
-        }
-
         public void Dispose()
         {
             if (Payload != null)
@@ -280,7 +276,7 @@ namespace RabbitMQ.Client.Impl
         }
     }
 
-    public class Frame
+    class Frame
     {
         public Frame(FrameType type, int channel)
         {
@@ -330,7 +326,7 @@ namespace RabbitMQ.Client.Impl
         }
     }
 
-    public enum FrameType : int
+    enum FrameType : int
     {
         FrameMethod = 1,
         FrameHeader = 2,

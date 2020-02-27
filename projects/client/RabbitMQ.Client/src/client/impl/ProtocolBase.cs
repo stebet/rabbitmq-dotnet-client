@@ -45,7 +45,7 @@ using RabbitMQ.Client.Impl;
 
 namespace RabbitMQ.Client.Framing.Impl
 {
-    public abstract class ProtocolBase : IProtocol
+    abstract class ProtocolBase : IProtocol
     {
         public IDictionary<string, bool> Capabilities = new Dictionary<string, bool>();
 
@@ -102,8 +102,8 @@ namespace RabbitMQ.Client.Framing.Impl
             replyMethodId = ConnectionMethodConstants.CloseOk;
         }
 
-        public abstract ContentHeaderBase DecodeContentHeaderFrom(ushort classId);
-        public abstract MethodBase DecodeMethodFrom(Memory<byte> reader);
+        internal abstract ContentHeaderBase DecodeContentHeaderFrom(ushort classId);
+        internal abstract MethodBase DecodeMethodFrom(Memory<byte> reader);
 
         public override bool Equals(object obj)
         {
