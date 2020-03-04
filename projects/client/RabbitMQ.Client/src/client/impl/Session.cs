@@ -38,6 +38,8 @@
 //  Copyright (c) 2007-2020 VMware, Inc.  All rights reserved.
 //---------------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 using RabbitMQ.Client.Framing.Impl;
 
 namespace RabbitMQ.Client.Impl
@@ -53,14 +55,16 @@ namespace RabbitMQ.Client.Impl
             _assembler = new CommandAssembler(connection.Protocol);
         }
 
-        public override void HandleFrame(InboundFrame frame)
+        public override Task HandleFrameAsync(InboundFrame frame)
         {
             using (Command cmd = _assembler.HandleFrame(frame))
             {
                 if (cmd != null)
                 {
-                    OnCommandReceived(cmd);
+                    return OnCommandReceived(cmd);
                 }
+
+                return Task.CompletedTask;
             }
         }
     }

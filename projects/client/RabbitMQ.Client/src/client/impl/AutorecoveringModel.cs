@@ -40,6 +40,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Framing.Impl;
@@ -287,7 +288,7 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public bool DispatchAsynchronous(Command cmd)
+        public Task<bool> DispatchAsynchronous(Command cmd)
         {
             return _delegate.DispatchAsynchronous(cmd);
         }
@@ -297,9 +298,9 @@ namespace RabbitMQ.Client.Impl
             _delegate.FinishClose();
         }
 
-        public void HandleCommand(ISession session, Command cmd)
+        public Task HandleCommand(ISession session, Command cmd)
         {
-            _delegate.HandleCommand(session, cmd);
+            return _delegate.HandleCommand(session, cmd);
         }
 
         public void OnBasicAck(BasicAckEventArgs args)
@@ -383,28 +384,28 @@ namespace RabbitMQ.Client.Impl
             _delegate.ConnectionTuneOk(channelMax, frameMax, heartbeat);
         }
 
-        public void HandleBasicAck(ulong deliveryTag,
+        public Task HandleBasicAck(ulong deliveryTag,
             bool multiple)
         {
-            _delegate.HandleBasicAck(deliveryTag, multiple);
+            return _delegate.HandleBasicAck(deliveryTag, multiple);
         }
 
-        public void HandleBasicCancel(string consumerTag, bool nowait)
+        public Task HandleBasicCancel(string consumerTag, bool nowait)
         {
-            _delegate.HandleBasicCancel(consumerTag, nowait);
+            return _delegate.HandleBasicCancel(consumerTag, nowait);
         }
 
-        public void HandleBasicCancelOk(string consumerTag)
+        public Task HandleBasicCancelOk(string consumerTag)
         {
-            _delegate.HandleBasicCancelOk(consumerTag);
+            return _delegate.HandleBasicCancelOk(consumerTag);
         }
 
-        public void HandleBasicConsumeOk(string consumerTag)
+        public Task HandleBasicConsumeOk(string consumerTag)
         {
-            _delegate.HandleBasicConsumeOk(consumerTag);
+            return _delegate.HandleBasicConsumeOk(consumerTag);
         }
 
-        public void HandleBasicDeliver(string consumerTag,
+        public Task HandleBasicDeliver(string consumerTag,
             ulong deliveryTag,
             bool redelivered,
             string exchange,
@@ -412,13 +413,13 @@ namespace RabbitMQ.Client.Impl
             IBasicProperties basicProperties,
             ReadOnlyMemory<byte> body)
         {
-            _delegate.HandleBasicDeliver(consumerTag, deliveryTag, redelivered, exchange,
+            return _delegate.HandleBasicDeliver(consumerTag, deliveryTag, redelivered, exchange,
                 routingKey, basicProperties, body);
         }
 
-        public void HandleBasicGetEmpty() => _delegate.HandleBasicGetEmpty();
+        public Task HandleBasicGetEmpty() => _delegate.HandleBasicGetEmpty();
 
-        public void HandleBasicGetOk(ulong deliveryTag,
+        public Task HandleBasicGetOk(ulong deliveryTag,
             bool redelivered,
             string exchange,
             string routingKey,
@@ -426,101 +427,101 @@ namespace RabbitMQ.Client.Impl
             IBasicProperties basicProperties,
             ReadOnlyMemory<byte> body)
         {
-            _delegate.HandleBasicGetOk(deliveryTag, redelivered, exchange, routingKey,
+            return _delegate.HandleBasicGetOk(deliveryTag, redelivered, exchange, routingKey,
                 messageCount, basicProperties, body);
         }
 
-        public void HandleBasicNack(ulong deliveryTag,
+        public Task HandleBasicNack(ulong deliveryTag,
             bool multiple,
             bool requeue)
         {
-            _delegate.HandleBasicNack(deliveryTag, multiple, requeue);
+            return _delegate.HandleBasicNack(deliveryTag, multiple, requeue);
         }
 
-        public void HandleBasicRecoverOk()
+        public Task HandleBasicRecoverOk()
         {
-            _delegate.HandleBasicRecoverOk();
+            return _delegate.HandleBasicRecoverOk();
         }
 
-        public void HandleBasicReturn(ushort replyCode,
+        public Task HandleBasicReturn(ushort replyCode,
             string replyText,
             string exchange,
             string routingKey,
             IBasicProperties basicProperties,
             ReadOnlyMemory<byte> body)
         {
-            _delegate.HandleBasicReturn(replyCode, replyText, exchange,
+            return _delegate.HandleBasicReturn(replyCode, replyText, exchange,
                 routingKey, basicProperties, body);
         }
 
-        public void HandleChannelClose(ushort replyCode,
+        public Task HandleChannelClose(ushort replyCode,
             string replyText,
             ushort classId,
             ushort methodId)
         {
-            _delegate.HandleChannelClose(replyCode, replyText, classId, methodId);
+            return _delegate.HandleChannelClose(replyCode, replyText, classId, methodId);
         }
 
-        public void HandleChannelCloseOk()
+        public Task HandleChannelCloseOk()
         {
-            _delegate.HandleChannelCloseOk();
+            return _delegate.HandleChannelCloseOk();
         }
 
-        public void HandleChannelFlow(bool active)
+        public Task HandleChannelFlow(bool active)
         {
-            _delegate.HandleChannelFlow(active);
+            return _delegate.HandleChannelFlow(active);
         }
 
-        public void HandleConnectionBlocked(string reason)
+        public Task HandleConnectionBlocked(string reason)
         {
-            _delegate.HandleConnectionBlocked(reason);
+            return _delegate.HandleConnectionBlocked(reason);
         }
 
-        public void HandleConnectionClose(ushort replyCode,
+        public Task HandleConnectionClose(ushort replyCode,
             string replyText,
             ushort classId,
             ushort methodId)
         {
-            _delegate.HandleConnectionClose(replyCode, replyText, classId, methodId);
+            return _delegate.HandleConnectionClose(replyCode, replyText, classId, methodId);
         }
 
-        public void HandleConnectionOpenOk(string knownHosts)
+        public Task HandleConnectionOpenOk(string knownHosts)
         {
-            _delegate.HandleConnectionOpenOk(knownHosts);
+            return _delegate.HandleConnectionOpenOk(knownHosts);
         }
 
-        public void HandleConnectionSecure(byte[] challenge)
+        public Task HandleConnectionSecure(byte[] challenge)
         {
-            _delegate.HandleConnectionSecure(challenge);
+            return _delegate.HandleConnectionSecure(challenge);
         }
 
-        public void HandleConnectionStart(byte versionMajor,
+        public Task HandleConnectionStart(byte versionMajor,
             byte versionMinor,
             IDictionary<string, object> serverProperties,
             byte[] mechanisms,
             byte[] locales)
         {
-            _delegate.HandleConnectionStart(versionMajor, versionMinor, serverProperties,
+            return _delegate.HandleConnectionStart(versionMajor, versionMinor, serverProperties,
                 mechanisms, locales);
         }
 
-        public void HandleConnectionTune(ushort channelMax,
+        public Task HandleConnectionTune(ushort channelMax,
             uint frameMax,
             ushort heartbeat)
         {
-            _delegate.HandleConnectionTune(channelMax, frameMax, heartbeat);
+            return _delegate.HandleConnectionTune(channelMax, frameMax, heartbeat);
         }
 
-        public void HandleConnectionUnblocked()
+        public Task HandleConnectionUnblocked()
         {
-            _delegate.HandleConnectionUnblocked();
+            return _delegate.HandleConnectionUnblocked();
         }
 
-        public void HandleQueueDeclareOk(string queue,
+        public Task HandleQueueDeclareOk(string queue,
             uint messageCount,
             uint consumerCount)
         {
-            _delegate.HandleQueueDeclareOk(queue, messageCount, consumerCount);
+            return _delegate.HandleQueueDeclareOk(queue, messageCount, consumerCount);
         }
 
         public void _Private_BasicCancel(string consumerTag,

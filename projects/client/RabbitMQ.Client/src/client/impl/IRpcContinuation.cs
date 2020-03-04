@@ -38,11 +38,13 @@
 //  Copyright (c) 2007-2020 VMware, Inc.  All rights reserved.
 //---------------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 namespace RabbitMQ.Client.Impl
 {
     interface IRpcContinuation
     {
-        void HandleCommand(Command cmd);
+        Task HandleCommand(Command cmd);
         void HandleModelShutdown(ShutdownEventArgs reason);
     }
 }

@@ -448,6 +448,7 @@ namespace RabbitMQ.Client.Apigen
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
@@ -1397,7 +1398,7 @@ $@"namespace {ApiNamespaceBase}
                 throw new NotImplementedException();
             }
 
-            EmitLine("    public override bool DispatchAsynchronous(Client.Impl.Command cmd) {");
+            EmitLine("    public override async Task<bool> DispatchAsynchronous(Client.Impl.Command cmd) {");
             EmitLine("      switch ((cmd.Method.ProtocolClassId << 16) | cmd.Method.ProtocolMethodId)");
             EmitLine("      {");
             foreach (MethodInfo method in asynchronousHandlers)
@@ -1418,11 +1419,11 @@ $@"namespace {ApiNamespaceBase}
                 if (parameters.Length > 0)
                 {
                     EmitLine($"          var __impl = ({implClass})cmd.Method;");
-                    EmitLine($"          {method.Name}({string.Join(", ", parameters.Select(GetParameterString))});");
+                    EmitLine($"          await {method.Name}({string.Join(", ", parameters.Select(GetParameterString))}).ConfigureAwait(false);");
                 }
                 else
                 {
-                    EmitLine($"          {method.Name}();");
+                    EmitLine($"          await {method.Name}().ConfigureAwait(false);");
                 }
                 EmitLine("          return true;");
                 EmitLine("        }");

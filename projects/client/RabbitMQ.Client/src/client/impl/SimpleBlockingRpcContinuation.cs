@@ -39,6 +39,7 @@
 //---------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Util;
@@ -77,14 +78,15 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public virtual void HandleCommand(Command cmd)
+        public virtual Task HandleCommand(Command cmd)
         {
-            m_cell.ContinueWithValue(Either<Command,ShutdownEventArgs>.Left(cmd));
+            m_cell.ContinueWithValue(Either<Command, ShutdownEventArgs>.Left(cmd));
+            return Task.CompletedTask;
         }
 
         public virtual void HandleModelShutdown(ShutdownEventArgs reason)
         {
-            m_cell.ContinueWithValue(Either<Command,ShutdownEventArgs>.Right(reason));
+            m_cell.ContinueWithValue(Either<Command, ShutdownEventArgs>.Right(reason));
         }
     }
 }

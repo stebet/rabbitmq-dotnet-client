@@ -39,6 +39,8 @@
 //---------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
+
 using RabbitMQ.Client.Framing.Impl;
 
 namespace RabbitMQ.Client.Impl
@@ -60,7 +62,7 @@ namespace RabbitMQ.Client.Impl
             MaxSeenDeliveryTag = 0;
         }
 
-        public override void HandleBasicGetOk(ulong deliveryTag,
+        public override Task HandleBasicGetOk(ulong deliveryTag,
             bool redelivered,
             string exchange,
             string routingKey,
@@ -73,7 +75,7 @@ namespace RabbitMQ.Client.Impl
                 MaxSeenDeliveryTag = deliveryTag;
             }
 
-            base.HandleBasicGetOk(
+            return base.HandleBasicGetOk(
                 OffsetDeliveryTag(deliveryTag),
                 redelivered,
                 exchange,
@@ -83,7 +85,7 @@ namespace RabbitMQ.Client.Impl
                 body);
         }
 
-        public override void HandleBasicDeliver(string consumerTag,
+        public override Task HandleBasicDeliver(string consumerTag,
             ulong deliveryTag,
             bool redelivered,
             string exchange,
@@ -96,7 +98,7 @@ namespace RabbitMQ.Client.Impl
                 MaxSeenDeliveryTag = deliveryTag;
             }
 
-            base.HandleBasicDeliver(consumerTag,
+            return base.HandleBasicDeliver(consumerTag,
                 OffsetDeliveryTag(deliveryTag),
                 redelivered,
                 exchange,

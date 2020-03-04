@@ -40,6 +40,7 @@
 
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace RabbitMQ.Client.Impl
 {
@@ -56,8 +57,9 @@ namespace RabbitMQ.Client.Impl
     {
         private class EmptyRpcContinuation : IRpcContinuation
         {
-            public void HandleCommand(Command cmd)
+            public Task HandleCommand(Command cmd)
             {
+                return Task.CompletedTask;
             }
 
             public void HandleModelShutdown(ShutdownEventArgs reason)

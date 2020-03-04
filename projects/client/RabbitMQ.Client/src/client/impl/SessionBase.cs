@@ -40,6 +40,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Client.Framing.Impl;
@@ -94,7 +95,7 @@ namespace RabbitMQ.Client.Impl
 
         public int ChannelNumber { get; private set; }
         public ShutdownEventArgs CloseReason { get; set; }
-        public Action<ISession, Command> CommandReceived { get; set; }
+        public Func<ISession, Command, Task> CommandReceived { get; set; }
         public Connection Connection { get; private set; }
 
         public bool IsOpen
@@ -107,9 +108,9 @@ namespace RabbitMQ.Client.Impl
             get { return Connection; }
         }
 
-        public virtual void OnCommandReceived(Command cmd)
+        public virtual Task OnCommandReceived(Command cmd)
         {
-            CommandReceived?.Invoke(this, cmd);
+            return CommandReceived?.Invoke(this, cmd);
         }
 
         public virtual void OnConnectionShutdown(object conn, ShutdownEventArgs reason)
@@ -158,7 +159,7 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public abstract void HandleFrame(InboundFrame frame);
+        public abstract Task HandleFrameAsync(InboundFrame frame);
 
         public void Notify()
         {

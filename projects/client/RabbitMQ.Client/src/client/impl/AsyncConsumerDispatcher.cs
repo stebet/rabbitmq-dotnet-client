@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace RabbitMQ.Client.Impl
 {
@@ -35,13 +36,13 @@ namespace RabbitMQ.Client.Impl
             private set;
         }
 
-        public void HandleBasicConsumeOk(IBasicConsumer consumer,
+        public Task HandleBasicConsumeOk(IBasicConsumer consumer,
             string consumerTag)
         {
-            ScheduleUnlessShuttingDown(new BasicConsumeOk(consumer, consumerTag));
+            return Schedule(new BasicConsumeOk(consumer, consumerTag));
         }
 
-        public void HandleBasicDeliver(IBasicConsumer consumer,
+        public Task HandleBasicDeliver(IBasicConsumer consumer,
             string consumerTag,
             ulong deliveryTag,
             bool redelivered,
@@ -50,38 +51,32 @@ namespace RabbitMQ.Client.Impl
             IBasicProperties basicProperties,
             ReadOnlyMemory<byte> body)
         {
-            ScheduleUnlessShuttingDown(new BasicDeliver(consumer, consumerTag, deliveryTag, redelivered, exchange, routingKey, basicProperties, body));
+            return Schedule(new BasicDeliver(consumer, consumerTag, deliveryTag, redelivered, exchange, routingKey, basicProperties, body));
         }
 
-        public void HandleBasicCancelOk(IBasicConsumer consumer, string consumerTag)
+        public Task HandleBasicCancelOk(IBasicConsumer consumer, string consumerTag)
         {
-            ScheduleUnlessShuttingDown(new BasicCancelOk(consumer, consumerTag));
+            return Schedule(new BasicCancelOk(consumer, consumerTag));
         }
 
-        public void HandleBasicCancel(IBasicConsumer consumer, string consumerTag)
+        public Task HandleBasicCancel(IBasicConsumer consumer, string consumerTag)
         {
-            ScheduleUnlessShuttingDown(new BasicCancel(consumer, consumerTag));
+            return Schedule(new BasicCancel(consumer, consumerTag));
         }
 
-        public void HandleModelShutdown(IBasicConsumer consumer, ShutdownEventArgs reason)
+        public Task HandleModelShutdown(IBasicConsumer consumer, ShutdownEventArgs reason)
         {
-            // the only case where we ignore the shutdown flag.
-            new ModelShutdown(consumer, reason).Execute(_model).GetAwaiter().GetResult();
+            return new ModelShutdown(consumer, reason).Execute(_model);
         }
 
-        private void ScheduleUnlessShuttingDown<TWork>(TWork work)
-            where TWork : Work
+        private Task Schedule<TWork>(TWork work) where TWork : Work
         {
             if (!IsShutdown)
             {
-                Schedule(work);
+                return work.Execute(_model);
             }
-        }
 
-        private void Schedule<TWork>(TWork work)
-            where TWork : Work
-        {
-            _workService.Schedule(_model, work);
+            return Task.CompletedTask;
         }
     }
 }

@@ -44,6 +44,7 @@
 // that ever changes.
 
 using System;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client.Framing.Impl;
 
@@ -71,14 +72,13 @@ namespace RabbitMQ.Client.Impl
 
         public Action Handler { get; set; }
 
-        public override void HandleFrame(InboundFrame frame)
+        public override Task HandleFrameAsync(InboundFrame frame)
         {
             lock (_closingLock)
             {
                 if (!_closing)
                 {
-                    base.HandleFrame(frame);
-                    return;
+                    return base.HandleFrameAsync(frame);
                 }
             }
 
@@ -88,8 +88,7 @@ namespace RabbitMQ.Client.Impl
                 if ((method.ProtocolClassId == _closeClassId)
                     && (method.ProtocolMethodId == _closeMethodId))
                 {
-                    base.HandleFrame(frame);
-                    return;
+                    return base.HandleFrameAsync(frame);
                 }
 
                 if ((method.ProtocolClassId == _closeOkClassId)
@@ -103,6 +102,7 @@ namespace RabbitMQ.Client.Impl
 
             // Either a non-method frame, or not what we were looking
             // for. Ignore it - we're quiescing.
+            return Task.CompletedTask;
         }
 
         ///<summary> Set channel 0 as quiescing </summary>

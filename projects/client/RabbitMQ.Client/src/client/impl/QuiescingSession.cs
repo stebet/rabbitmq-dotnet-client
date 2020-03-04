@@ -38,6 +38,8 @@
 //  Copyright (c) 2007-2020 VMware, Inc.  All rights reserved.
 //---------------------------------------------------------------------------
 
+using System.Threading.Tasks;
+
 using RabbitMQ.Client.Framing.Impl;
 
 namespace RabbitMQ.Client.Impl
@@ -55,7 +57,7 @@ namespace RabbitMQ.Client.Impl
             m_reason = reason;
         }
 
-        public override void HandleFrame(InboundFrame frame)
+        public override Task HandleFrameAsync(InboundFrame frame)
         {
             if (frame.IsMethod())
             {
@@ -79,6 +81,7 @@ namespace RabbitMQ.Client.Impl
 
             // Either a non-method frame, or not what we were looking
             // for. Ignore it - we're quiescing.
+            return Task.CompletedTask;
         }
 
         protected Command CreateChannelCloseOk()

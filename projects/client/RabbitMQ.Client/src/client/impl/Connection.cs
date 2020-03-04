@@ -350,7 +350,7 @@ namespace RabbitMQ.Client.Framing.Impl
         ///<remarks>
         /// Loop only used while quiescing. Use only to cleanly close connection
         ///</remarks>
-        public void ClosingLoop()
+        public async Task ClosingLoop()
         {
             try
             {
@@ -358,7 +358,7 @@ namespace RabbitMQ.Client.Framing.Impl
                 // Wait for response/socket closure or timeout
                 while (!_closed)
                 {
-                    MainLoopIteration();
+                    await MainLoopIteration().ConfigureAwait(false);
                 }
             }
             catch (ObjectDisposedException ode)
@@ -493,7 +493,7 @@ namespace RabbitMQ.Client.Framing.Impl
             ShutdownReport.Add(new ShutdownReportEntry(error, ex));
         }
 
-        public void MainLoop()
+        public async Task MainLoop()
         {
             try
             {
@@ -504,7 +504,7 @@ namespace RabbitMQ.Client.Framing.Impl
                     {
                         try
                         {
-                            MainLoopIteration();
+                            await MainLoopIteration().ConfigureAwait(false);
                         }
                         catch (SoftProtocolException spe)
                         {
@@ -541,7 +541,7 @@ namespace RabbitMQ.Client.Framing.Impl
 #pragma warning disable 0168
                     try
                     {
-                        ClosingLoop();
+                        await ClosingLoop().ConfigureAwait(false);
                     }
                     catch (SocketException)
                     {
@@ -560,7 +560,7 @@ namespace RabbitMQ.Client.Framing.Impl
             }
         }
 
-        public void MainLoopIteration()
+        public async Task MainLoopIteration()
         {
             using (InboundFrame frame = _frameHandler.ReadFrame())
             {
@@ -585,7 +585,7 @@ namespace RabbitMQ.Client.Framing.Impl
                     // quiescing situation, even though technically we
                     // should be ignoring everything except
                     // connection.close-ok.
-                    _session0.HandleFrame(frame);
+                    await _session0.HandleFrameAsync(frame).ConfigureAwait(false);
                 }
                 else
                 {
@@ -607,7 +607,7 @@ namespace RabbitMQ.Client.Framing.Impl
                         }
                         else
                         {
-                            session.HandleFrame(frame);
+                            await session.HandleFrameAsync(frame).ConfigureAwait(false);
                         }
                     }
                 }
@@ -826,7 +826,7 @@ entry.ToString());
 
         public void StartMainLoop(bool useBackgroundThread)
         {
-            _mainLoopTask = Task.Run((Action)MainLoop);
+            _mainLoopTask = Task.Run(MainLoop);
         }
 
         public void HeartbeatReadTimerCallback(object state)

@@ -40,7 +40,7 @@
 
 using System;
 using System.Collections.Generic;
-
+using System.Threading.Tasks;
 using RabbitMQ.Client.Apigen.Attributes;
 
 namespace RabbitMQ.Client.Impl
@@ -70,20 +70,20 @@ namespace RabbitMQ.Client.Impl
 
         ///<summary>Handle incoming Basic.Ack methods. Signals a
         ///BasicAckEvent.</summary>
-        void HandleBasicAck(ulong deliveryTag,
+        Task HandleBasicAck(ulong deliveryTag,
             bool multiple);
 
-        void HandleBasicCancel(string consumerTag, bool nowait);
+        Task HandleBasicCancel(string consumerTag, bool nowait);
 
         ///<summary>Handle incoming Basic.CancelOk methods.</summary>
-        void HandleBasicCancelOk(string consumerTag);
+        Task HandleBasicCancelOk(string consumerTag);
 
         ///<summary>Handle incoming Basic.ConsumeOk methods.</summary>
-        void HandleBasicConsumeOk(string consumerTag);
+        Task HandleBasicConsumeOk(string consumerTag);
 
         ///<summary>Handle incoming Basic.Deliver methods. Dispatches
         ///to waiting consumers.</summary>
-        void HandleBasicDeliver(string consumerTag,
+        Task HandleBasicDeliver(string consumerTag,
             ulong deliveryTag,
             bool redelivered,
             string exchange,
@@ -98,11 +98,11 @@ namespace RabbitMQ.Client.Impl
         /// specification it notes that it is "deprecated pending
         /// review".
         ///</remarks>
-        void HandleBasicGetEmpty();
+        Task HandleBasicGetEmpty();
 
         ///<summary>Handle incoming Basic.GetOk methods. Routes the
         ///information to a waiting Basic.Get continuation.</summary>
-        void HandleBasicGetOk(ulong deliveryTag,
+        Task HandleBasicGetOk(ulong deliveryTag,
             bool redelivered,
             string exchange,
             string routingKey,
@@ -112,18 +112,18 @@ namespace RabbitMQ.Client.Impl
 
         ///<summary>Handle incoming Basic.Nack methods. Signals a
         ///BasicNackEvent.</summary>
-        void HandleBasicNack(ulong deliveryTag,
+        Task HandleBasicNack(ulong deliveryTag,
             bool multiple,
             bool requeue);
 
         ///<summary>Handle incoming Basic.RecoverOk methods
         ///received in reply to Basic.Recover.
         ///</summary>
-        void HandleBasicRecoverOk();
+        Task HandleBasicRecoverOk();
 
         ///<summary>Handle incoming Basic.Return methods. Signals a
         ///BasicReturnEvent.</summary>
-        void HandleBasicReturn(ushort replyCode,
+        Task HandleBasicReturn(ushort replyCode,
             string replyText,
             string exchange,
             string routingKey,
@@ -132,31 +132,31 @@ namespace RabbitMQ.Client.Impl
 
         ///<summary>Handle an incoming Channel.Close. Shuts down the
         ///session and model.</summary>
-        void HandleChannelClose(ushort replyCode,
+        Task HandleChannelClose(ushort replyCode,
             string replyText,
             ushort classId,
             ushort methodId);
 
         ///<summary>Handle an incoming Channel.CloseOk.</summary>
-        void HandleChannelCloseOk();
+        Task HandleChannelCloseOk();
 
         ///<summary>Handle incoming Channel.Flow methods. Either
         ///stops or resumes sending the methods that have content.</summary>
-        void HandleChannelFlow(bool active);
+        Task HandleChannelFlow(bool active);
 
         ///<summary>Handle an incoming Connection.Blocked.</summary>
         [AmqpMethodMapping(null, "connection", "blocked")]
-        void HandleConnectionBlocked(string reason);
+        Task HandleConnectionBlocked(string reason);
 
         ///<summary>Handle an incoming Connection.Close. Shuts down the
         ///connection and all sessions and models.</summary>
-        void HandleConnectionClose(ushort replyCode,
+        Task HandleConnectionClose(ushort replyCode,
             string replyText,
             ushort classId,
             ushort methodId);
 
         ///<summary>Handle an incoming Connection.OpenOk.</summary>
-        void HandleConnectionOpenOk([AmqpFieldMapping("RabbitMQ.Client.Framing", "reserved1")] string knownHosts);
+        Task HandleConnectionOpenOk([AmqpFieldMapping("RabbitMQ.Client.Framing", "reserved1")] string knownHosts);
 
         ///////////////////////////////////////////////////////////////////////////
         // Connection-related methods, for use in channel 0 during
@@ -164,11 +164,11 @@ namespace RabbitMQ.Client.Impl
 
         ///<summary>Handle incoming Connection.Secure
         ///methods.</summary>
-        void HandleConnectionSecure(byte[] challenge);
+        Task HandleConnectionSecure(byte[] challenge);
 
         ///<summary>Handle an incoming Connection.Start. Used during
         ///connection initialisation.</summary>
-        void HandleConnectionStart(byte versionMajor,
+        Task HandleConnectionStart(byte versionMajor,
             byte versionMinor,
             IDictionary<string, object> serverProperties,
             byte[] mechanisms,
@@ -176,16 +176,16 @@ namespace RabbitMQ.Client.Impl
 
         ///<summary>Handle incoming Connection.Tune
         ///methods.</summary>
-        void HandleConnectionTune(ushort channelMax,
+        Task HandleConnectionTune(ushort channelMax,
             uint frameMax,
             ushort heartbeat);
 
         ///<summary>Handle an incominga Connection.Unblocked.</summary>
-        void HandleConnectionUnblocked();
+        Task HandleConnectionUnblocked();
 
         ///<summary>Handle incoming Queue.DeclareOk methods. Routes the
         ///information to a waiting Queue.DeclareOk continuation.</summary>
-        void HandleQueueDeclareOk(string queue,
+        Task HandleQueueDeclareOk(string queue,
             uint messageCount,
             uint consumerCount);
 

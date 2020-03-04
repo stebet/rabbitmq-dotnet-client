@@ -39,6 +39,7 @@
 //---------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 
 namespace RabbitMQ.Client.Impl
 {
@@ -46,10 +47,10 @@ namespace RabbitMQ.Client.Impl
     {
         bool IsShutdown { get; }
 
-        void HandleBasicConsumeOk(IBasicConsumer consumer,
+        Task HandleBasicConsumeOk(IBasicConsumer consumer,
                              string consumerTag);
 
-        void HandleBasicDeliver(IBasicConsumer consumer,
+        Task HandleBasicDeliver(IBasicConsumer consumer,
                             string consumerTag,
                             ulong deliveryTag,
                             bool redelivered,
@@ -58,13 +59,13 @@ namespace RabbitMQ.Client.Impl
                             IBasicProperties basicProperties,
                             ReadOnlyMemory<byte> body);
 
-        void HandleBasicCancelOk(IBasicConsumer consumer,
+        Task HandleBasicCancelOk(IBasicConsumer consumer,
                             string consumerTag);
 
-        void HandleBasicCancel(IBasicConsumer consumer,
+        Task HandleBasicCancel(IBasicConsumer consumer,
                           string consumerTag);
 
-        void HandleModelShutdown(IBasicConsumer consumer,
+        Task HandleModelShutdown(IBasicConsumer consumer,
             ShutdownEventArgs reason);
 
         void Quiesce();

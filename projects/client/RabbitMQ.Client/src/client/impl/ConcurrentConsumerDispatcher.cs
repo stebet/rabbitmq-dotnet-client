@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client.Events;
 
@@ -38,10 +39,10 @@ namespace RabbitMQ.Client.Impl
             private set;
         }
 
-        public void HandleBasicConsumeOk(IBasicConsumer consumer,
+        public Task HandleBasicConsumeOk(IBasicConsumer consumer,
                                          string consumerTag)
         {
-            UnlessShuttingDown(() =>
+            return Execute(() =>
             {
                 try
                 {
@@ -59,7 +60,7 @@ namespace RabbitMQ.Client.Impl
             });
         }
 
-        public void HandleBasicDeliver(IBasicConsumer consumer,
+        public Task HandleBasicDeliver(IBasicConsumer consumer,
                                        string consumerTag,
                                        ulong deliveryTag,
                                        bool redelivered,
@@ -68,7 +69,7 @@ namespace RabbitMQ.Client.Impl
                                        IBasicProperties basicProperties,
                                        ReadOnlyMemory<byte> body)
         {
-            UnlessShuttingDown(() =>
+            return Execute(() =>
             {
                 try
                 {
@@ -92,9 +93,9 @@ namespace RabbitMQ.Client.Impl
             });
         }
 
-        public void HandleBasicCancelOk(IBasicConsumer consumer, string consumerTag)
+        public Task HandleBasicCancelOk(IBasicConsumer consumer, string consumerTag)
         {
-            UnlessShuttingDown(() =>
+            return Execute(() =>
             {
                 try
                 {
@@ -112,9 +113,9 @@ namespace RabbitMQ.Client.Impl
             });
         }
 
-        public void HandleBasicCancel(IBasicConsumer consumer, string consumerTag)
+        public Task HandleBasicCancel(IBasicConsumer consumer, string consumerTag)
         {
-            UnlessShuttingDown(() =>
+            return Execute(() =>
             {
                 try
                 {
@@ -132,7 +133,7 @@ namespace RabbitMQ.Client.Impl
             });
         }
 
-        public void HandleModelShutdown(IBasicConsumer consumer, ShutdownEventArgs reason)
+        public Task HandleModelShutdown(IBasicConsumer consumer, ShutdownEventArgs reason)
         {
             // the only case where we ignore the shutdown flag.
             try
@@ -148,19 +149,19 @@ namespace RabbitMQ.Client.Impl
                     };
                 _model.OnCallbackException(CallbackExceptionEventArgs.Build(e, details));
             };
+
+            return Task.CompletedTask;
         }
 
-        private void UnlessShuttingDown(Action fn)
+        private Task Execute(Action fn)
         {
             if (!IsShutdown)
             {
-                Execute(fn);
+                _workService.AddWork(_model, fn);
+                return Task.CompletedTask;
             }
-        }
 
-        private void Execute(Action fn)
-        {
-            _workService.AddWork(_model, fn);
+            return Task.CompletedTask;
         }
     }
 }

@@ -40,6 +40,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace RabbitMQ.Client.Impl
 {
@@ -58,7 +59,7 @@ namespace RabbitMQ.Client.Impl
         ///<summary>
         /// Single recipient - no need for multiple handlers to be informed of arriving commands.
         ///</summary>
-        Action<ISession, Command> CommandReceived { get; set; }
+        Func<ISession, Command, Task> CommandReceived { get; set; }
 
         /// <summary>
         /// Gets the connection.
@@ -77,7 +78,7 @@ namespace RabbitMQ.Client.Impl
 
         void Close(ShutdownEventArgs reason);
         void Close(ShutdownEventArgs reason, bool notify);
-        void HandleFrame(InboundFrame frame);
+        Task HandleFrameAsync(InboundFrame frame);
         void Notify();
         void Transmit(Command cmd);
         void Transmit(IList<Command> cmd);
