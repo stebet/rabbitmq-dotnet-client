@@ -58,6 +58,7 @@ namespace RabbitMQ.Client.Impl
     abstract class ModelBase : IFullModel, IRecoverable
     {
         public readonly IDictionary<string, IBasicConsumer> m_consumers = new Dictionary<string, IBasicConsumer>();
+        private static IBasicProperties s_emptyProperties;
 
         ///<summary>Only used to kick-start a connection open
         ///sequence. See <see cref="Connection.Open"/> </summary>
@@ -91,7 +92,7 @@ namespace RabbitMQ.Client.Impl
         {
             if (workService is AsyncConsumerWorkService asyncConsumerWorkService)
             {
-                ConsumerDispatcher = new AsyncConsumerDispatcher(this, asyncConsumerWorkService);
+                ConsumerDispatcher = new AsyncConsumerDispatcher(this);
             }
             else
             {
@@ -1093,8 +1094,10 @@ namespace RabbitMQ.Client.Impl
 
             if (basicProperties == null)
             {
-                basicProperties = CreateBasicProperties();
+                s_emptyProperties ??= CreateBasicProperties();
+                basicProperties = s_emptyProperties;
             }
+
             if (_nextPublishSeqNo > 0)
             {
                 lock (_confirmLock)
