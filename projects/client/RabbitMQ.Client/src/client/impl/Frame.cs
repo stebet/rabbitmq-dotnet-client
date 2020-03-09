@@ -80,7 +80,7 @@ namespace RabbitMQ.Client.Impl
     {
         private readonly ReadOnlyMemory<byte> _body;
 
-        public BodySegmentOutboundFrame(int channel, ReadOnlyMemory<byte> bodySegment) : base(FrameType.FrameBody, channel)
+        internal BodySegmentOutboundFrame(int channel, ReadOnlyMemory<byte> bodySegment) : base(FrameType.FrameBody, channel)
         {
             _body = bodySegment;
         }

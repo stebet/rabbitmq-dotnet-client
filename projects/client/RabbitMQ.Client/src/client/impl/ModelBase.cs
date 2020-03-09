@@ -90,7 +90,7 @@ namespace RabbitMQ.Client.Impl
 
         public ModelBase(ISession session, ConsumerWorkService workService)
         {
-            if (workService is AsyncConsumerWorkService asyncConsumerWorkService)
+            if (workService is AsyncConsumerWorkService)
             {
                 ConsumerDispatcher = new AsyncConsumerDispatcher(this);
             }
@@ -181,9 +181,7 @@ namespace RabbitMQ.Client.Impl
         {
             get { return CloseReason == null; }
         }
-
-
-
+        
         public ulong NextPublishSeqNo { get => _nextPublishSeqNo; }
 
         public ISession Session { get; private set; }
@@ -1071,7 +1069,6 @@ namespace RabbitMQ.Client.Impl
 
         internal void AllocatatePublishSeqNos(int count)
         {
-
             lock (_confirmLock)
             {
                 if (_nextPublishSeqNo > 0)
@@ -1094,7 +1091,7 @@ namespace RabbitMQ.Client.Impl
 
             if (basicProperties == null)
             {
-                s_emptyProperties ??= CreateBasicProperties();
+                s_emptyProperties = s_emptyProperties ?? CreateBasicProperties();
                 basicProperties = s_emptyProperties;
             }
 
