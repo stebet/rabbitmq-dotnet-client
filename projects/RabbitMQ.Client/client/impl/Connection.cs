@@ -38,6 +38,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
 using RabbitMQ.Client.Events;
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Client.Impl;
@@ -157,7 +158,8 @@ namespace RabbitMQ.Client.Framing.Impl
         /// <summary>
         /// This event is never fired by non-recovering connections but it is a part of the <see cref="IConnection"/> interface.
         /// </summary>
-        public event EventHandler<EventArgs> RecoverySucceeded {
+        public event EventHandler<EventArgs> RecoverySucceeded
+        {
             add { }
             remove { }
         }
@@ -165,7 +167,8 @@ namespace RabbitMQ.Client.Framing.Impl
         /// <summary>
         /// This event is never fired by non-recovering connections but it is a part of the <see cref="IConnection"/> interface.
         /// </summary>
-        public event EventHandler<ConnectionRecoveryErrorEventArgs> ConnectionRecoveryError {
+        public event EventHandler<ConnectionRecoveryErrorEventArgs> ConnectionRecoveryError
+        {
             add { }
             remove { }
         }
@@ -173,7 +176,8 @@ namespace RabbitMQ.Client.Framing.Impl
         /// <summary>
         /// This event is never fired by non-recovering connections but it is a part of the <see cref="IConnection"/> interface.
         /// </summary>
-        public event EventHandler<ConsumerTagChangedAfterRecoveryEventArgs> ConsumerTagChangeAfterRecovery {
+        public event EventHandler<ConsumerTagChangedAfterRecoveryEventArgs> ConsumerTagChangeAfterRecovery
+        {
             add { }
             remove { }
         }
@@ -181,7 +185,8 @@ namespace RabbitMQ.Client.Framing.Impl
         /// <summary>
         /// This event is never fired by non-recovering connections but it is a part of the <see cref="IConnection"/> interface.
         /// </summary>
-        public event EventHandler<QueueNameChangedAfterRecoveryEventArgs> QueueNameChangeAfterRecovery {
+        public event EventHandler<QueueNameChangedAfterRecoveryEventArgs> QueueNameChangeAfterRecovery
+        {
             add { }
             remove { }
         }
@@ -322,7 +327,7 @@ namespace RabbitMQ.Client.Framing.Impl
             }
         }
 
-        private void ClosingLoop()
+        private async ValueTask ClosingLoop()
         {
             try
             {
@@ -330,7 +335,7 @@ namespace RabbitMQ.Client.Framing.Impl
                 // Wait for response/socket closure or timeout
                 while (!_closed)
                 {
-                    MainLoopIteration();
+                    await MainLoopIteration().ConfigureAwait(false);
                 }
             }
             catch (ObjectDisposedException ode)
@@ -454,7 +459,7 @@ namespace RabbitMQ.Client.Framing.Impl
             }
         }
 
-        private void MainLoop()
+        private async ValueTask MainLoop()
         {
             bool shutdownCleanly = false;
             try
@@ -463,7 +468,7 @@ namespace RabbitMQ.Client.Framing.Impl
                 {
                     try
                     {
-                        MainLoopIteration();
+                        await MainLoopIteration().ConfigureAwait(false);
                     }
                     catch (SoftProtocolException spe)
                     {
@@ -500,7 +505,7 @@ namespace RabbitMQ.Client.Framing.Impl
 #pragma warning disable 0168
                 try
                 {
-                    ClosingLoop();
+                    await ClosingLoop().ConfigureAwait(false);
                 }
                 catch (SocketException)
                 {
@@ -514,51 +519,60 @@ namespace RabbitMQ.Client.Framing.Impl
             FinishClose();
         }
 
-        private void MainLoopIteration()
+        private async ValueTask MainLoopIteration()
         {
-            InboundFrame frame = _frameHandler.ReadFrame();
-            NotifyHeartbeatListener();
+            var bytes = await _frameHandler.TryReadFrameBytes().ConfigureAwait(false);
+            HandleBytes(bytes);
+        }
 
-            bool shallReturn = true;
-            // We have received an actual frame.
-            if (frame.Type == FrameType.FrameHeartbeat)
+        private void HandleBytes(ReadOnlyMemory<byte> bytes)
+        {
+            if (!bytes.IsEmpty)
             {
-                // Ignore it: we've already just reset the heartbeat
-            }
-            else if (frame.Channel == 0)
-            {
-                // In theory, we could get non-connection.close-ok
-                // frames here while we're quiescing (m_closeReason !=
-                // null). In practice, there's a limited number of
-                // things the server can ask of us on channel 0 -
-                // essentially, just connection.close. That, combined
-                // with the restrictions on pipelining, mean that
-                // we're OK here to handle channel 0 traffic in a
-                // quiescing situation, even though technically we
-                // should be ignoring everything except
-                // connection.close-ok.
-                shallReturn = _session0.HandleFrame(in frame);
-            }
-            else
-            {
-                // If we're still m_running, but have a m_closeReason,
-                // then we must be quiescing, which means any inbound
-                // frames for non-zero channels (and any inbound
-                // commands on channel zero that aren't
-                // Connection.CloseOk) must be discarded.
-                if (_closeReason is null)
+                InboundFrame frame = InboundFrame.ReadFrom(bytes);
+                NotifyHeartbeatListener();
+
+                bool shallReturn = true;
+                // We have received an actual frame.
+                if (frame.Type == FrameType.FrameHeartbeat)
                 {
-                    // No close reason, not quiescing the
-                    // connection. Handle the frame. (Of course, the
-                    // Session itself may be quiescing this particular
-                    // channel, but that's none of our concern.)
-                    shallReturn = _sessionManager.Lookup(frame.Channel).HandleFrame(in frame);
+                    // Ignore it: we've already just reset the heartbeat
                 }
-            }
+                else if (frame.Channel == 0)
+                {
+                    // In theory, we could get non-connection.close-ok
+                    // frames here while we're quiescing (m_closeReason !=
+                    // null). In practice, there's a limited number of
+                    // things the server can ask of us on channel 0 -
+                    // essentially, just connection.close. That, combined
+                    // with the restrictions on pipelining, mean that
+                    // we're OK here to handle channel 0 traffic in a
+                    // quiescing situation, even though technically we
+                    // should be ignoring everything except
+                    // connection.close-ok.
+                    shallReturn = _session0.HandleFrame(in frame);
+                }
+                else
+                {
+                    // If we're still m_running, but have a m_closeReason,
+                    // then we must be quiescing, which means any inbound
+                    // frames for non-zero channels (and any inbound
+                    // commands on channel zero that aren't
+                    // Connection.CloseOk) must be discarded.
+                    if (_closeReason is null)
+                    {
+                        // No close reason, not quiescing the
+                        // connection. Handle the frame. (Of course, the
+                        // Session itself may be quiescing this particular
+                        // channel, but that's none of our concern.)
+                        shallReturn = _sessionManager.Lookup(frame.Channel).HandleFrame(in frame);
+                    }
+                }
 
-            if (shallReturn)
-            {
-                frame.ReturnPayload();
+                if (shallReturn)
+                {
+                    frame.ReturnPayload();
+                }
             }
         }
 
@@ -665,7 +679,7 @@ namespace RabbitMQ.Client.Framing.Impl
 
         private void StartMainLoop()
         {
-            _mainLoopTask = Task.Factory.StartNew(MainLoop, TaskCreationOptions.LongRunning);
+            _mainLoopTask = Task.Run(MainLoop);
         }
 
         private void HeartbeatReadTimerCallback(object state)

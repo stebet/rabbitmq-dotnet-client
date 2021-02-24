@@ -31,13 +31,15 @@
 
 using System;
 using System.Buffers;
-using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+
+using Pipelines.Sockets.Unofficial;
 
 using RabbitMQ.Client.Exceptions;
 
@@ -62,13 +64,11 @@ namespace RabbitMQ.Client.Impl
     internal class SocketFrameHandler : IFrameHandler
     {
         private readonly ITcpClient _socket;
-        private readonly Stream _reader;
-        private readonly Stream _writer;
         private readonly ChannelWriter<ReadOnlyMemory<byte>> _channelWriter;
         private readonly ChannelReader<ReadOnlyMemory<byte>> _channelReader;
+        private readonly IDuplexPipe _pipe;
         private readonly Task _writerTask;
         private readonly object _semaphore = new object();
-        private readonly byte[] _frameHeaderBuffer;
         private bool _closed;
 
         public SocketFrameHandler(AmqpTcpEndpoint endpoint,
@@ -76,7 +76,6 @@ namespace RabbitMQ.Client.Impl
             TimeSpan connectionTimeout, TimeSpan readTimeout, TimeSpan writeTimeout)
         {
             Endpoint = endpoint;
-            _frameHeaderBuffer = new byte[6];
             var channel = Channel.CreateUnbounded<ReadOnlyMemory<byte>>(
                 new UnboundedChannelOptions
                 {
@@ -122,15 +121,13 @@ namespace RabbitMQ.Client.Impl
                 _socket = ConnectUsingIPv4(new IPEndPoint(ipv4, endpoint.Port), socketFactory, connectionTimeout);
             }
 
-            Stream netstream = _socket.GetStream();
-            netstream.ReadTimeout = (int)readTimeout.TotalMilliseconds;
-            netstream.WriteTimeout = (int)writeTimeout.TotalMilliseconds;
+            _socket.ReceiveTimeout = readTimeout;
 
             if (endpoint.Ssl.Enabled)
             {
                 try
                 {
-                    netstream = SslHelper.TcpUpgrade(netstream, endpoint.Ssl);
+                    _pipe = StreamConnection.GetDuplex(SslHelper.TcpUpgrade(_socket.GetStream(), endpoint.Ssl));
                 }
                 catch (Exception)
                 {
@@ -138,12 +135,14 @@ namespace RabbitMQ.Client.Impl
                     throw;
                 }
             }
-
-            _reader = new BufferedStream(netstream, _socket.Client.ReceiveBufferSize);
-            _writer = new BufferedStream(netstream, _socket.Client.SendBufferSize);
+            else
+            {
+                _pipe = SocketConnection.Create(_socket.Client);
+            }
 
             WriteTimeout = writeTimeout;
             _writerTask = Task.Run(WriteLoop);
+
         }
         public AmqpTcpEndpoint Endpoint { get; set; }
 
@@ -202,9 +201,9 @@ namespace RabbitMQ.Client.Impl
                     try
                     {
                         _channelWriter.Complete();
-                        _writerTask.GetAwaiter().GetResult();
+                        _pipe.Output.Complete();
                     }
-                    catch(Exception)
+                    catch (Exception)
                     {
                     }
 
@@ -224,9 +223,9 @@ namespace RabbitMQ.Client.Impl
             }
         }
 
-        public InboundFrame ReadFrame()
+        public ValueTask<ReadOnlyMemory<byte>> TryReadFrameBytes()
         {
-            return InboundFrame.ReadFrom(_reader, _frameHeaderBuffer);
+            return InboundFrame.TryReadFrameBytes(_pipe.Input);
         }
 
         public void SendHeader()
@@ -257,12 +256,8 @@ namespace RabbitMQ.Client.Impl
                 headerBytes[7] = (byte)Endpoint.Protocol.MinorVersion;
             }
 
-#if NETSTANDARD
-            _writer.Write(headerBytes, 0, 8);
-#else
-            _writer.Write(headerBytes);
-#endif
-            _writer.Flush();
+            _pipe.Output.Write(headerBytes);
+            _pipe.Output.FlushAsync().GetAwaiter().GetResult();
         }
 
         public void Write(ReadOnlyMemory<byte> memory)
@@ -277,15 +272,23 @@ namespace RabbitMQ.Client.Impl
                 while (_channelReader.TryRead(out ReadOnlyMemory<byte> memory))
                 {
                     MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment);
-#if NETSTANDARD
-                    await _writer.WriteAsync(segment.Array, segment.Offset, segment.Count).ConfigureAwait(false);
-#else
-                    await _writer.WriteAsync(memory).ConfigureAwait(false);
-#endif
+                    WriteToPipe(memory);
                     ArrayPool<byte>.Shared.Return(segment.Array);
                 }
 
-                await _writer.FlushAsync().ConfigureAwait(false);
+                ValueTask<FlushResult> task = _pipe.Output.FlushAsync();
+                if (!task.IsCompletedSuccessfully)
+                {
+                    await task.ConfigureAwait(false);
+                }
+            }
+
+            void WriteToPipe(ReadOnlyMemory<byte> memory)
+            {
+                ReadOnlySpan<byte> memorySpan = memory.Span;
+                Span<byte> outputSpan = _pipe.Output.GetSpan(memorySpan.Length);
+                memory.Span.CopyTo(outputSpan);
+                _pipe.Output.Advance(memorySpan.Length);
             }
         }
 

@@ -32,9 +32,10 @@
 using System;
 using System.Buffers;
 using System.IO;
-using System.Net.Sockets;
+using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 using RabbitMQ.Client.Exceptions;
 using RabbitMQ.Util;
@@ -165,99 +166,79 @@ namespace RabbitMQ.Client.Impl
             _rentedArray = rentedArray;
         }
 
-        private static void ProcessProtocolHeader(Stream reader)
+        private static void ProcessProtocolHeader(ReadOnlySequence<byte> buffer)
         {
-            try
+            Span<byte> protocolSpan = stackalloc byte[7];
+            buffer.Slice(1, 7).CopyTo(protocolSpan);
+            if (protocolSpan[0] != 'M' || protocolSpan[1] != 'Q' || protocolSpan[2] != 'P')
             {
-                byte b1 = (byte)reader.ReadByte();
-                byte b2 = (byte)reader.ReadByte();
-                byte b3 = (byte)reader.ReadByte();
-                if (b1 != 'M' || b2 != 'Q' || b3 != 'P')
-                {
-                    throw new MalformedFrameException("Invalid AMQP protocol header from server");
-                }
-
-                int transportHigh = reader.ReadByte();
-                int transportLow = reader.ReadByte();
-                int serverMajor = reader.ReadByte();
-                int serverMinor = reader.ReadByte();
-                throw new PacketNotRecognizedException(transportHigh, transportLow, serverMajor, serverMinor);
-            }
-            catch (EndOfStreamException)
-            {
-                // Ideally we'd wrap the EndOfStreamException in the
-                // MalformedFrameException, but unfortunately the
-                // design of MalformedFrameException's superclass,
-                // ProtocolViolationException, doesn't permit
-                // this. Fortunately, the call stack in the
-                // EndOfStreamException is largely irrelevant at this
-                // point, so can safely be ignored.
                 throw new MalformedFrameException("Invalid AMQP protocol header from server");
             }
+
+            throw new PacketNotRecognizedException(protocolSpan[3], protocolSpan[4], protocolSpan[5], protocolSpan[6]);
         }
 
-        internal static InboundFrame ReadFrom(Stream reader, byte[] frameHeaderBuffer)
+        internal static ValueTask<ReadOnlyMemory<byte>> TryReadFrameBytes(PipeReader reader)
         {
-            int type = default;
-            try
+            if (!reader.TryRead(out ReadResult result))
             {
-                type = reader.ReadByte();
-            }
-            catch (IOException ioe)
-            {
-                // If it's a WSAETIMEDOUT SocketException, unwrap it.
-                // This might happen when the limit of half-open connections is
-                // reached.
-                if (ioe.InnerException is null ||
-                    !(ioe.InnerException is SocketException exception) ||
-                    exception.SocketErrorCode != SocketError.TimedOut)
-                {
-                    throw;
-                }
-
-                ExceptionDispatchInfo.Capture(ioe.InnerException).Throw();
+                return TryReadFrameBytesSlow(reader);
             }
 
-            switch (type)
+            return new ValueTask<ReadOnlyMemory<byte>>(ExtractFrameBytesImpl(reader, result));
+        }
+
+        internal static async ValueTask<ReadOnlyMemory<byte>> TryReadFrameBytesSlow(PipeReader reader)
+        {
+            ReadResult result = await reader.ReadAsync().ConfigureAwait(false);
+            return ExtractFrameBytesImpl(reader, result);
+        }
+
+        private static ReadOnlyMemory<byte> ExtractFrameBytesImpl(PipeReader reader, ReadResult result)
+        {
+            if (result.Buffer.IsEmpty)
             {
-                case -1:
-                    throw new EndOfStreamException("Reached the end of the stream. Possible authentication failure.");
-                case 'A':
-                    // Probably an AMQP protocol header, otherwise meaningless
-                    ProcessProtocolHeader(reader);
-                    break;
+                throw new EndOfStreamException("Reached the end of the stream. Possible authentication failure.");
             }
 
-            reader.Read(frameHeaderBuffer, 0, frameHeaderBuffer.Length);
-            int channel = NetworkOrderDeserializer.ReadUInt16(new ReadOnlySpan<byte>(frameHeaderBuffer));
-            int payloadSize = NetworkOrderDeserializer.ReadInt32(new ReadOnlySpan<byte>(frameHeaderBuffer, 2, 4)); // FIXME - throw exn on unreasonable value
-
-            const int EndMarkerLength = 1;
-            // Is returned by InboundFrame.ReturnPayload in Connection.MainLoopIteration
-            int readSize = payloadSize + EndMarkerLength;
-            byte[] payloadBytes = ArrayPool<byte>.Shared.Rent(readSize);
-            int bytesRead = 0;
-            try
+            if (result.Buffer.Length < 8)
             {
-                while (bytesRead < readSize)
-                {
-                    bytesRead += reader.Read(payloadBytes, bytesRead, readSize - bytesRead);
-                }
-            }
-            catch (Exception)
-            {
-                // Early EOF.
-                ArrayPool<byte>.Shared.Return(payloadBytes);
-                throw new MalformedFrameException($"Short frame - expected to read {readSize} bytes, only got {bytesRead} bytes");
+                reader.AdvanceTo(result.Buffer.Start);
+                return null;
             }
 
-            if (payloadBytes[payloadSize] != Constants.FrameEnd)
+            if (result.Buffer.First.Span[0] == 'A')
+            {
+                ProcessProtocolHeader(result.Buffer);
+            }
+
+            Span<byte> payloadSizeBytes = stackalloc byte[4];
+            result.Buffer.Slice(3, 4).CopyTo(payloadSizeBytes);
+            int payloadSize = NetworkOrderDeserializer.ReadInt32(payloadSizeBytes); // FIXME - throw exn on unreasonable value
+            if (result.Buffer.Length < payloadSize + 8)
+            {
+                reader.AdvanceTo(result.Buffer.Start);
+                return null;
+            }
+
+            int frameSize = payloadSize + 8;
+            byte[] payloadBytes = ArrayPool<byte>.Shared.Rent(frameSize);
+            ReadOnlySequence<byte> slice = result.Buffer.Slice(0, frameSize);
+            slice.CopyTo(payloadBytes);
+            if (payloadBytes[frameSize - 1] != Constants.FrameEnd)
             {
                 ArrayPool<byte>.Shared.Return(payloadBytes);
                 throw new MalformedFrameException($"Bad frame end marker: {payloadBytes[payloadSize]}");
             }
 
-            return new InboundFrame((FrameType)type, channel, new Memory<byte>(payloadBytes, 0, payloadSize), payloadBytes);
+            reader.AdvanceTo(slice.End);
+            return payloadBytes.AsMemory(0, frameSize);
+        }
+
+        internal static InboundFrame ReadFrom(ReadOnlyMemory<byte> frameBytes)
+        {
+            MemoryMarshal.TryGetArray(frameBytes, out ArraySegment<byte> segment);
+            return new InboundFrame((FrameType)frameBytes.Span[0], NetworkOrderDeserializer.ReadUInt16(frameBytes.Span.Slice(1)), frameBytes.Slice(7, frameBytes.Length - 8), segment.Array);
         }
 
         public byte[] TakeoverPayload()
